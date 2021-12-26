@@ -4,10 +4,13 @@ import dash_html_components as html
 import pandas as pd
 import numpy as np
 from dash.dependencies import Output, Input
+import plotly.express as px
+
 
 data = pd.read_csv("data/avocado.csv")
 data["Date"] = pd.to_datetime(data["Date"], format="%Y-%m-%d")
 data.sort_values("Date", inplace=True)
+BAG_TYPES = ["Small Bags", "Large Bags", "XLarge Bags"]
 
 external_stylesheets = [
     {
@@ -102,6 +105,23 @@ app.layout = html.Div(
                     ),
                     className="card",
                 ),
+                html.Div(
+                    children=[
+                        html.Div(
+                            children=dcc.Graph(
+                                id="bag-type-pie-chart", config={'displayModeBar': False}
+                            ),
+                            className="card"
+                        ),
+                        html.Div(
+                            children=dcc.Graph(
+                                id="bag-type-line-chart",
+                            ),
+                            className="card"
+                        )
+                    ],
+                    className="card-split"
+                )
             ],
             className="wrapper",
         ),
@@ -110,7 +130,12 @@ app.layout = html.Div(
 
 
 @app.callback(
-    [Output("price-chart", "figure"), Output("volume-chart", "figure")],
+    [
+        Output("price-chart", "figure"),
+        Output("volume-chart", "figure"),
+        Output("bag-type-pie-chart", "figure"),
+        Output("bag-type-line-chart", "figure")
+    ],
     [
         Input("region-filter", "value"),
         Input("type-filter", "value"),
@@ -162,7 +187,35 @@ def update_charts(region, avocado_type, start_date, end_date):
             "colorway": ["#E12D39"],
         },
     }
-    return price_chart_figure, volume_chart_figure
+
+    # bag type pie chart
+    bag_type_sum = {
+        bag_type: filtered_data[bag_type].sum()
+        for bag_type in BAG_TYPES
+    }
+    pie_chart_fig = px.pie(values=list(bag_type_sum.values()),
+                           names=list(bag_type_sum.keys()),
+                           title="Volume by Bag Type Sold")
+
+    # bag type line chart
+    bag_type_figure = {
+        "data": [
+            {
+                "x": filtered_data["Date"],
+                "y": filtered_data[bag_type],
+                "type": "lines",
+                "marker": dict(color=["red", "green", "blue"][i]),
+                "name": bag_type
+            }
+            for i, bag_type in enumerate(BAG_TYPES)
+        ],
+        "layout": {
+            "title": {"text": "Bag Type Sold", "x": 0.05, "xanchor": "left"},
+            "xaxis": {"fixedrange": True},
+            "yaxis": {"fixedrange": True},
+        },
+    }
+    return price_chart_figure, volume_chart_figure, pie_chart_fig, bag_type_figure
 
 
 if __name__ == "__main__":
